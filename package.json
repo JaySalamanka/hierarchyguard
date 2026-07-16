@@ -13,9 +13,15 @@
   "files": [
     "dist/cli",
     "schemas",
+    "docs/DATA_HANDLING.md",
+    "docs/PAID_AUDIT.md",
+    "docs/RELEASE_CHECKLIST.md",
     "LICENSE",
     "NOTICE",
-    "README.md"
+    "README.md",
+    "SECURITY.md",
+    "SUPPORT.md",
+    "TRADEMARKS.md"
   ],
   "engines": {
     "node": ">=22"

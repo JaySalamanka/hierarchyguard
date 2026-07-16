@@ -9,10 +9,17 @@ import { AssetTreeReport } from "../src/types";
 
 function reportWithMessage(message: string): AssetTreeReport {
   return {
-    schemaVersion: "1.0",
+    schemaVersion: "1.1",
     tool: { name: "assettree-ci", version: "test", ruleset: "generic@test" },
     configSha256: "0".repeat(64),
     inputs: [{ path: "asset-data/test.csv", sha256: "1".repeat(64), rows: 1 }],
+    gate: { mode: "all", failOn: "error" },
+    comparison: {
+      baseline: null,
+      newFindings: { total: 1, errors: 1, warnings: 0, notices: 0 },
+      resolvedFindings: { total: 0, errors: 0, warnings: 0, notices: 0 },
+      unchangedFindings: { total: 0, errors: 0, warnings: 0, notices: 0 },
+    },
     summary: { files: 1, rows: 1, score: 0, errors: 1, warnings: 0, notices: 0, passed: false, operationalErrors: 0 },
     findings: [
       makeFinding({
@@ -42,6 +49,23 @@ describe("Markdown reporter", () => {
     expect(redacted).not.toContain("SENSITIVE-ROW-VALUE");
     expect(redacted).not.toContain("asset-data/test.csv");
     expect(redacted).toContain("were not published to GitHub");
+  });
+
+  it("publishes baseline counts without exposing the baseline path", () => {
+    const report = reportWithMessage("SENSITIVE-ROW-VALUE");
+    report.gate.mode = "new";
+    report.comparison.baseline = {
+      path: "private/customer-baseline.json",
+      sha256: "2".repeat(64),
+      schemaVersion: "1.1",
+      toolVersion: "test",
+      ruleset: "generic@1",
+    };
+    report.comparison.unchangedFindings = { total: 1, errors: 1, warnings: 0, notices: 0 };
+    report.comparison.newFindings = { total: 0, errors: 0, warnings: 0, notices: 0 };
+    const redacted = renderMarkdown(report, undefined, { includeFindings: false });
+    expect(redacted).toContain("0 new, 0 resolved, 1 unchanged");
+    expect(redacted).not.toContain("private/customer-baseline.json");
   });
 
   it("rejects a non-HTTPS audit link", () => {

@@ -62,6 +62,7 @@ function markdownLinkDestination(value: string): string {
 function publicFinding(finding: Finding): Record<string, unknown> {
   return {
     fingerprint: finding.fingerprint,
+    baseline_status: finding.baselineStatus,
     rule_id: finding.ruleId,
     severity: finding.severity,
     ...(finding.assetId ? { asset_id: finding.assetId } : {}),
@@ -75,12 +76,38 @@ function publicFinding(finding: Finding): Record<string, unknown> {
   };
 }
 
+function diagnosticFindings(report: AssetTreeReport): Finding[] {
+  if (report.gate.mode !== "new" || !report.comparison.baseline) return report.findings;
+  return [
+    ...report.findings.filter((finding) => finding.baselineStatus === "new"),
+    ...report.findings.filter((finding) => finding.baselineStatus === "unchanged"),
+  ];
+}
+
 export function renderJson(report: AssetTreeReport): string {
   const value = {
     schema_version: report.schemaVersion,
     tool: report.tool,
     config_sha256: report.configSha256,
     inputs: report.inputs,
+    gate: {
+      mode: report.gate.mode,
+      fail_on: report.gate.failOn,
+    },
+    comparison: {
+      baseline: report.comparison.baseline
+        ? {
+            path: report.comparison.baseline.path,
+            sha256: report.comparison.baseline.sha256,
+            schema_version: report.comparison.baseline.schemaVersion,
+            tool_version: report.comparison.baseline.toolVersion,
+            ruleset: report.comparison.baseline.ruleset,
+          }
+        : null,
+      new_findings: report.comparison.newFindings,
+      resolved_findings: report.comparison.resolvedFindings,
+      unchanged_findings: report.comparison.unchangedFindings,
+    },
     summary: {
       files: report.summary.files,
       rows: report.summary.rows,
@@ -109,19 +136,35 @@ export function renderMarkdown(
     `**Score:** ${report.summary.score}/100  `,
     `**Rows:** ${report.summary.rows} across ${report.summary.files} file(s)  `,
     `**Findings:** ${report.summary.errors} error(s), ${report.summary.warnings} warning(s), ${report.summary.notices} notice(s)`,
+    `**Gate:** ${report.gate.mode === "new" ? "new findings only" : "all findings"}; fail on ${report.gate.failOn}`,
     "",
     "The score is a generic structural signal, not target-CMMS certification or an import guarantee.",
   ];
 
-  if (report.findings.length > 0 && includeFindings) {
-    lines.push("", "## Highest-priority findings", "", "| Severity | Rule | File:line | Field | Finding |", "|---|---|---|---|---|");
-    for (const finding of report.findings.slice(0, 50)) {
+  if (report.comparison.baseline) {
+    lines.push(
+      "",
+      `**Baseline delta:** ${report.comparison.newFindings.total} new, ${report.comparison.resolvedFindings.total} resolved, ${report.comparison.unchangedFindings.total} unchanged finding(s).`,
+    );
+  }
+
+  const orderedFindings = diagnosticFindings(report);
+  if (orderedFindings.length > 0 && includeFindings) {
+    lines.push("", "## Highest-priority findings", "");
+    if (report.comparison.baseline) {
+      lines.push("| Baseline status | Severity | Rule | File:line | Field | Finding |", "|---|---|---|---|---|---|");
+    } else {
+      lines.push("| Severity | Rule | File:line | Field | Finding |", "|---|---|---|---|---|");
+    }
+    for (const finding of orderedFindings.slice(0, 50)) {
       lines.push(
-        `| ${finding.severity.toUpperCase()} | ${finding.ruleId} | ${markdownCell(`${finding.file}:${finding.line}`)} | ${markdownCell(finding.field)} | ${markdownCell(finding.message)} |`,
+        report.comparison.baseline
+          ? `| ${finding.baselineStatus.toUpperCase()} | ${finding.severity.toUpperCase()} | ${finding.ruleId} | ${markdownCell(`${finding.file}:${finding.line}`)} | ${markdownCell(finding.field)} | ${markdownCell(finding.message)} |`
+          : `| ${finding.severity.toUpperCase()} | ${finding.ruleId} | ${markdownCell(`${finding.file}:${finding.line}`)} | ${markdownCell(finding.field)} | ${markdownCell(finding.message)} |`,
       );
     }
-    if (report.findings.length > 50) lines.push("", `${report.findings.length - 50} more finding(s) are available in the JSON report.`);
-  } else if (report.findings.length === 0) {
+    if (orderedFindings.length > 50) lines.push("", `${orderedFindings.length - 50} more finding(s) are available in the JSON report.`);
+  } else if (orderedFindings.length === 0) {
     lines.push("", "Hierarchy structure passed the configured generic checks.");
   } else {
     lines.push(
@@ -146,16 +189,23 @@ export function renderConsole(report: AssetTreeReport): string {
   const lines = [
     `AssetTree CI: ${report.summary.passed ? "PASS" : "FAIL"}`,
     `Score ${report.summary.score}/100 | ${report.summary.rows} rows | ${report.summary.errors} errors | ${report.summary.warnings} warnings`,
+    `Gate ${report.gate.mode}/${report.gate.failOn}`,
   ];
-  for (const finding of report.findings.slice(0, 5)) {
+  if (report.comparison.baseline) {
+    lines.push(
+      `Baseline ${report.comparison.newFindings.total} new | ${report.comparison.resolvedFindings.total} resolved | ${report.comparison.unchangedFindings.total} unchanged`,
+    );
+  }
+  const orderedFindings = diagnosticFindings(report);
+  for (const finding of orderedFindings.slice(0, 5)) {
     lines.push(
       sanitizePlainText(
-        `${finding.severity.toUpperCase()} ${finding.ruleId} ${finding.file}:${finding.line} ${finding.message}`,
+        `${report.comparison.baseline ? `${finding.baselineStatus.toUpperCase()} ` : ""}${finding.severity.toUpperCase()} ${finding.ruleId} ${finding.file}:${finding.line} ${finding.message}`,
         1_200,
       ),
     );
   }
-  if (report.findings.length > 5) lines.push(`... ${report.findings.length - 5} more finding(s) in the generated reports.`);
+  if (orderedFindings.length > 5) lines.push(`... ${orderedFindings.length - 5} more finding(s) in the generated reports.`);
   return lines.join("\n");
 }
 
@@ -181,6 +231,7 @@ export function renderSarif(report: AssetTreeReport): string {
         },
         results: report.findings.map((finding) => ({
           ruleId: finding.ruleId,
+          baselineState: finding.baselineStatus,
           level: finding.severity === "error" ? "error" : finding.severity === "warning" ? "warning" : "note",
           message: { text: `${finding.message} ${finding.suggestion}` },
           locations: [
