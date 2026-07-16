@@ -2,11 +2,12 @@
 // SPDX-FileCopyrightText: 2026 Mohammad Allatayfeh
 // SPDX-License-Identifier: MPL-2.0
 
+import { parseGateMode } from "../baseline";
 import { parseFailOn } from "../config";
 import { OperationalError } from "../errors";
 import { renderConsole } from "../report";
 import { execute } from "../run";
-import { FailOn, TOOL_VERSION } from "../types";
+import { FailOn, GateMode, TOOL_VERSION } from "../types";
 
 interface CliOptions {
   patterns: string[];
@@ -14,6 +15,8 @@ interface CliOptions {
   configRequired: boolean;
   outputDir: string;
   failOn?: FailOn;
+  baselinePath?: string;
+  gateMode: GateMode;
 }
 
 const HELP = `AssetTree CI ${TOOL_VERSION}
@@ -25,6 +28,8 @@ Options:
   --config <path>       JSON configuration path (default: .assettree.json)
   --output-dir <path>   Contained report directory (default: .assettree)
   --fail-on <severity>  error, warning, or none
+  --baseline <path>     Existing AssetTree result JSON inside the workspace
+  --gate-mode <mode>    all or new (default: all)
   --version             Print the version
   --help                Show this help
 `;
@@ -45,6 +50,8 @@ function parseArgs(args: string[]): CliOptions | "help" | "version" {
   let configRequired = false;
   let outputDir = ".assettree";
   let failOn: FailOn | undefined;
+  let baselinePath: string | undefined;
+  let gateMode: GateMode = "all";
   for (let index = 1; index < args.length; index += 1) {
     const argument = args[index];
     if (argument === "--config") {
@@ -57,13 +64,27 @@ function parseArgs(args: string[]): CliOptions | "help" | "version" {
     } else if (argument === "--fail-on") {
       failOn = parseFailOn(optionValue(args, index, argument));
       index += 1;
+    } else if (argument === "--baseline") {
+      baselinePath = optionValue(args, index, argument);
+      index += 1;
+    } else if (argument === "--gate-mode") {
+      gateMode = parseGateMode(optionValue(args, index, argument));
+      index += 1;
     } else if (argument?.startsWith("--")) {
       throw new OperationalError(`Unknown option: ${argument}`);
     } else if (argument) {
       patterns.push(argument);
     }
   }
-  return { patterns, configPath, configRequired, outputDir, ...(failOn ? { failOn } : {}) };
+  return {
+    patterns,
+    configPath,
+    configRequired,
+    outputDir,
+    gateMode,
+    ...(failOn ? { failOn } : {}),
+    ...(baselinePath ? { baselinePath } : {}),
+  };
 }
 
 async function main(): Promise<void> {
@@ -83,6 +104,8 @@ async function main(): Promise<void> {
     configRequired: parsed.configRequired,
     outputDir: parsed.outputDir,
     ...(parsed.failOn ? { failOn: parsed.failOn } : {}),
+    ...(parsed.baselinePath ? { baselinePath: parsed.baselinePath } : {}),
+    gateMode: parsed.gateMode,
   });
   process.stdout.write(`${renderConsole(result.report)}\n`);
   process.stdout.write(`JSON: ${result.paths.json}\nSARIF: ${result.paths.sarif}\nMarkdown: ${result.paths.markdown}\n`);

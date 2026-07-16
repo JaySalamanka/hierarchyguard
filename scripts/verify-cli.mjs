@@ -38,9 +38,27 @@ try {
   requireStatus(invalid, 1, "Invalid CLI check");
   if (!invalid.stdout.includes("AssetTree CI: FAIL")) throw new Error("Invalid CLI output did not report FAIL.");
 
+  const unchanged = run([
+    "check",
+    "invalid.csv",
+    "--config",
+    "config.json",
+    "--baseline",
+    "invalid-report/results.json",
+    "--gate-mode",
+    "new",
+    "--output-dir",
+    "unchanged-report",
+  ]);
+  requireStatus(unchanged, 0, "Unchanged baseline CLI check");
+  if (!unchanged.stdout.includes("Baseline 0 new") || !unchanged.stdout.includes("Gate new/error")) {
+    throw new Error("Baseline CLI output did not report the new-only gate and delta.");
+  }
+
   await writeFile(resolve(workspace, "malformed.json"), "{not-json}\n", "utf8");
   requireStatus(run(["check", "valid.csv", "--config", "malformed.json"]), 2, "Malformed config check");
   requireStatus(run(["check", "missing.csv", "--config", "config.json"]), 2, "No-match check");
+  requireStatus(run(["check", "valid.csv", "--config", "config.json", "--gate-mode", "new"]), 2, "Missing baseline check");
 
   const packageJson = JSON.parse(await readFile(resolve(repository, "package.json"), "utf8"));
   const version = run(["--version"]);
@@ -48,9 +66,11 @@ try {
   if (version.stdout.trim() !== packageJson.version) throw new Error("Bundled CLI version does not match package.json.");
   const help = run(["--help"]);
   requireStatus(help, 0, "Help command");
-  if (!help.stdout.includes("assettree-ci check")) throw new Error("Bundled CLI help is incomplete.");
+  if (!help.stdout.includes("assettree-ci check") || !help.stdout.includes("--baseline") || !help.stdout.includes("--gate-mode")) {
+    throw new Error("Bundled CLI help is incomplete.");
+  }
 
-  process.stdout.write("Bundled CLI exits 0/1/2 correctly and passed no-egress, help, and version checks.\n");
+  process.stdout.write("Bundled CLI exits 0/1/2 correctly and passed baseline, no-egress, help, and version checks.\n");
 } finally {
   await rm(workspace, { force: true, recursive: true });
 }

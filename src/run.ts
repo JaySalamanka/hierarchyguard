@@ -5,10 +5,12 @@ import { createHash, randomUUID } from "node:crypto";
 import { chmod, rename, rm, writeFile } from "node:fs/promises";
 import { relative, resolve } from "node:path";
 
+import { compareWithBaseline, loadBaseline, parseGateMode } from "./baseline";
 import { loadConfig } from "./config";
 import { parseCsvFile } from "./csv";
 import { discoverCsvFiles } from "./discover";
 import { buildReport, sortFindings, validateParsedFile } from "./engine";
+import { OperationalError } from "./errors";
 import { renderJson, renderMarkdown, renderSarif } from "./report";
 import { createContainedDirectory, normalizeRelativePath, rejectSymlink } from "./security";
 import { AssetTreeConfig, ExecuteOptions, ExecuteResult, Finding, ParsedFile } from "./types";
@@ -40,6 +42,11 @@ async function writePrivateReport(path: string, contents: string, label: string)
 
 export async function execute(options: ExecuteOptions): Promise<ExecuteResult> {
   const workspace = resolve(options.workspace);
+  const gateMode = parseGateMode(options.gateMode);
+  if (gateMode === "new" && !options.baselinePath) {
+    throw new OperationalError("gate-mode new requires a baseline result path.");
+  }
+  const baseline = options.baselinePath ? await loadBaseline(workspace, options.baselinePath) : undefined;
   const loaded = await loadConfig(workspace, options.configPath ?? ".assettree.json", options.configRequired ?? false);
   const config: AssetTreeConfig = structuredClone(loaded.config);
   if (options.patterns && options.patterns.length > 0) config.files = [...options.patterns];
@@ -53,7 +60,8 @@ export async function execute(options: ExecuteOptions): Promise<ExecuteResult> {
     retainedFindings = sortFindings([...retainedFindings, ...validated.findings]).slice(0, config.limits.maxFindings);
     parsed.push({ ...validated, findings: [] });
   }
-  const report = buildReport(parsed, configHash(config), config, retainedFindings);
+  const initialReport = buildReport(parsed, configHash(config), config, retainedFindings);
+  const report = baseline ? compareWithBaseline(initialReport, baseline, gateMode) : initialReport;
   const markdown = renderMarkdown(report, options.auditUrl);
   const outputDirectory = await createContainedDirectory(workspace, options.outputDir ?? ".assettree");
   const absolutePaths = {
@@ -61,6 +69,13 @@ export async function execute(options: ExecuteOptions): Promise<ExecuteResult> {
     sarif: resolve(outputDirectory, "results.sarif"),
     markdown: resolve(outputDirectory, "summary.md"),
   };
+  if (baseline) {
+    const baselinePath = resolve(workspace, baseline.descriptor.path);
+    const conflict = Object.entries(absolutePaths).find(([, reportPath]) => relative(baselinePath, reportPath) === "");
+    if (conflict) {
+      throw new OperationalError(`Baseline result path cannot also be the generated ${conflict[0]} report path.`);
+    }
+  }
   await writePrivateReport(absolutePaths.json, renderJson(report), "JSON");
   await writePrivateReport(absolutePaths.sarif, renderSarif(report), "SARIF");
   await writePrivateReport(absolutePaths.markdown, markdown, "Markdown");

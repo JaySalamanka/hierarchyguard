@@ -3,6 +3,12 @@
 AssetTree CI V1 is an offline validator.
 
 - It reads only CSV files selected by repository-relative globs.
+- An optional baseline is an existing AssetTree result JSON read from a
+  contained repository-relative path. Baselines are limited to 10 MiB and
+  reject absolute paths, traversal, symbolic-link components, invalid UTF-8,
+  malformed JSON, incompatible rulesets, operational errors, and incomplete
+  finding details. A run rejects a baseline path that would be overwritten by
+  any of its generated report files.
 - It rejects absolute paths, traversal, symbolic-link inputs, oversized files,
   excessive rows/columns/fields, and output paths outside the workspace.
 - It writes JSON, SARIF, and Markdown reports inside a contained local directory.

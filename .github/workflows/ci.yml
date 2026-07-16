@@ -68,7 +68,7 @@ jobs:
         run: npm ci --ignore-scripts
 
       - name: Audit dependencies
-        run: npm audit --audit-level=high
+        run: npm audit --ignore-scripts --audit-level=low
 
       - name: Build committed distributions
         run: npm run build

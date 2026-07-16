@@ -7,6 +7,8 @@ export const RULESET_VERSION = "generic@1";
 
 export type Severity = "error" | "warning" | "notice";
 export type FailOn = "error" | "warning" | "none";
+export type GateMode = "all" | "new";
+export type BaselineStatus = "new" | "unchanged";
 export type RootPolicy = "any" | "one";
 
 export interface ColumnConfig {
@@ -52,6 +54,7 @@ export interface AssetRow {
   levelText: string;
   line: number;
   cells: Readonly<Record<string, string>>;
+  fingerprintIdentity?: string;
 }
 
 export interface Finding {
@@ -64,6 +67,8 @@ export interface Finding {
   field: string;
   assetId?: string;
   fingerprint: string;
+  legacyFingerprintV1: string;
+  baselineStatus: BaselineStatus;
 }
 
 export interface InputSummary {
@@ -83,8 +88,30 @@ export interface ReportSummary {
   operationalErrors: number;
 }
 
+export interface FindingCounts {
+  total: number;
+  errors: number;
+  warnings: number;
+  notices: number;
+}
+
+export interface BaselineDescriptor {
+  path: string;
+  sha256: string;
+  schemaVersion: string;
+  toolVersion: string;
+  ruleset: string;
+}
+
+export interface BaselineComparison {
+  baseline: BaselineDescriptor | null;
+  newFindings: FindingCounts;
+  resolvedFindings: FindingCounts;
+  unchangedFindings: FindingCounts;
+}
+
 export interface AssetTreeReport {
-  schemaVersion: "1.0";
+  schemaVersion: "1.1";
   tool: {
     name: string;
     version: string;
@@ -92,6 +119,11 @@ export interface AssetTreeReport {
   };
   configSha256: string;
   inputs: InputSummary[];
+  gate: {
+    mode: GateMode;
+    failOn: FailOn;
+  };
+  comparison: BaselineComparison;
   summary: ReportSummary;
   findings: Finding[];
 }
@@ -116,6 +148,8 @@ export interface ExecuteOptions {
   configRequired?: boolean;
   outputDir?: string;
   failOn?: FailOn;
+  baselinePath?: string;
+  gateMode?: GateMode;
   auditUrl?: string;
 }
 

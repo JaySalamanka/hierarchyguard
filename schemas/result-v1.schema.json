@@ -1,12 +1,25 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://example.invalid/assettree-ci/schemas/result-v1.schema.json",
+  "$id": "https://raw.githubusercontent.com/JaySalamanka/assettree-ci/main/schemas/result-v1.schema.json",
   "title": "AssetTree CI deterministic result v1",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "tool", "config_sha256", "inputs", "summary", "findings"],
+  "$defs": {
+    "findingCounts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["total", "errors", "warnings", "notices"],
+      "properties": {
+        "total": { "type": "integer", "minimum": 0 },
+        "errors": { "type": "integer", "minimum": 0 },
+        "warnings": { "type": "integer", "minimum": 0 },
+        "notices": { "type": "integer", "minimum": 0 }
+      }
+    }
+  },
+  "required": ["schema_version", "tool", "config_sha256", "inputs", "gate", "comparison", "summary", "findings"],
   "properties": {
-    "schema_version": { "const": "1.0" },
+    "schema_version": { "const": "1.1" },
     "tool": {
       "type": "object",
       "additionalProperties": false,
@@ -31,6 +44,42 @@
         }
       }
     },
+    "gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "fail_on"],
+      "properties": {
+        "mode": { "enum": ["all", "new"] },
+        "fail_on": { "enum": ["error", "warning", "none"] }
+      }
+    },
+    "comparison": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["baseline", "new_findings", "resolved_findings", "unchanged_findings"],
+      "properties": {
+        "baseline": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["path", "sha256", "schema_version", "tool_version", "ruleset"],
+              "properties": {
+                "path": { "type": "string" },
+                "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+                "schema_version": { "enum": ["1.0", "1.1"] },
+                "tool_version": { "type": "string" },
+                "ruleset": { "const": "generic@1" }
+              }
+            }
+          ]
+        },
+        "new_findings": { "$ref": "#/$defs/findingCounts" },
+        "resolved_findings": { "$ref": "#/$defs/findingCounts" },
+        "unchanged_findings": { "$ref": "#/$defs/findingCounts" }
+      }
+    },
     "summary": {
       "type": "object",
       "additionalProperties": false,
@@ -51,9 +100,10 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["fingerprint", "rule_id", "severity", "field", "message", "suggestion", "location"],
+        "required": ["fingerprint", "baseline_status", "rule_id", "severity", "field", "message", "suggestion", "location"],
         "properties": {
           "fingerprint": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+          "baseline_status": { "enum": ["new", "unchanged"] },
           "rule_id": { "type": "string", "pattern": "^ATC[0-9]{3}$" },
           "severity": { "enum": ["error", "warning", "notice"] },
           "asset_id": { "type": "string" },

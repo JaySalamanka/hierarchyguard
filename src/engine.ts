@@ -1,12 +1,14 @@
 // SPDX-FileCopyrightText: 2026 Mohammad Allatayfeh
 // SPDX-License-Identifier: MPL-2.0
 
+import { createHash } from "node:crypto";
+
+import { initialComparison, qualityGateFails } from "./baseline";
 import { makeFinding } from "./finding";
 import {
   AssetRow,
   AssetTreeConfig,
   AssetTreeReport,
-  FailOn,
   Finding,
   ParsedFile,
   RULESET_VERSION,
@@ -32,6 +34,26 @@ function safeLabel(value: string): string {
   return normalized.length > 120 ? `${normalized.slice(0, 117)}...` : normalized;
 }
 
+function assignRowFingerprintIdentities(rows: AssetRow[]): void {
+  const idCounts = new Map<string, number>();
+  for (const row of rows) {
+    if (row.id.trim()) idCounts.set(row.id, (idCounts.get(row.id) ?? 0) + 1);
+  }
+
+  const occurrences = new Map<string, number>();
+  for (const row of rows) {
+    const uniqueAssetId = row.id.trim() && idCounts.get(row.id) === 1;
+    const base = uniqueAssetId
+      ? `asset:${row.id}`
+      : `row:${createHash("sha256")
+          .update(JSON.stringify(Object.entries(row.cells).sort(([left], [right]) => compareText(left, right))))
+          .digest("hex")}`;
+    const occurrence = (occurrences.get(base) ?? 0) + 1;
+    occurrences.set(base, occurrence);
+    row.fingerprintIdentity = `${base}:occurrence:${occurrence}`;
+  }
+}
+
 function rowFinding(
   file: string,
   row: AssetRow,
@@ -51,6 +73,7 @@ function rowFinding(
     file,
     line: row.line,
     field,
+    ...(row.fingerprintIdentity ? { fingerprintIdentity: row.fingerprintIdentity } : {}),
     ...(fingerprintVariant ? { fingerprintVariant } : {}),
     ...(assetId ? { assetId } : {}),
   });
@@ -125,6 +148,8 @@ function graphDepth(id: string, byId: Map<string, AssetRow>, memo: Map<string, n
 
 export function validateParsedFile(parsed: ParsedFile, config: AssetTreeConfig): ParsedFile {
   const file = parsed.input.path;
+  const rows = parsed.assets;
+  assignRowFingerprintIdentities(rows);
   const retained: Record<Severity, Finding[]> = { error: [], warning: [], notice: [] };
   const counts: Record<Severity, number> = { error: 0, warning: 0, notice: 0 };
   const rowSeverities = new Map<number, Severity>();
@@ -144,7 +169,6 @@ export function validateParsedFile(parsed: ParsedFile, config: AssetTreeConfig):
     },
   };
   findings.push(...parsed.findings);
-  const rows = parsed.assets;
   const byId = new Map<string, AssetRow>();
   const exactGroups = new Map<string, AssetRow[]>();
   const foldedGroups = new Map<string, AssetRow[]>();
@@ -332,12 +356,6 @@ export function sortFindings(findings: Finding[]): Finding[] {
   );
 }
 
-function gateFails(errors: number, warnings: number, failOn: FailOn): boolean {
-  if (failOn === "none") return false;
-  if (failOn === "warning") return errors > 0 || warnings > 0;
-  return errors > 0;
-}
-
 function statisticsFor(file: ParsedFile): NonNullable<ParsedFile["findingStatistics"]> {
   if (file.findingStatistics) return file.findingStatistics;
   const counts = { errors: 0, warnings: 0, notices: 0, scorePenalty: 0 };
@@ -399,13 +417,15 @@ export function buildReport(
 
   const operationalErrors = files.reduce((total, file) => total + file.operationalErrors, 0);
   const rows = files.reduce((total, file) => total + file.input.rows, 0);
-  const passed = operationalErrors === 0 && !gateFails(errors, warnings, config.gate.failOn);
+  const passed = operationalErrors === 0 && !qualityGateFails(errors, warnings, config.gate.failOn);
 
   return {
-    schemaVersion: "1.0",
+    schemaVersion: "1.1",
     tool: { name: TOOL_NAME, version: TOOL_VERSION, ruleset: RULESET_VERSION },
     configSha256,
     inputs: files.map((file) => file.input).sort((left, right) => compareText(left.path, right.path)),
+    gate: { mode: "all", failOn: config.gate.failOn },
+    comparison: initialComparison(errors, warnings, notices),
     summary: {
       files: files.length,
       rows,
