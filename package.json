@@ -1,0 +1,50 @@
+{
+  "name": "@jaysalamanka/assettree-ci",
+  "version": "0.1.0-private.0",
+  "description": "Deterministic offline quality gates for CMMS asset hierarchy CSV files.",
+  "author": {
+    "name": "Mohammad Allatayfeh"
+  },
+  "private": true,
+  "type": "module",
+  "bin": {
+    "assettree-ci": "dist/cli/index.js"
+  },
+  "files": [
+    "dist/cli",
+    "schemas",
+    "LICENSE",
+    "NOTICE",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "npm run clean && ncc build src/entry/action.ts -o dist/action --minify --no-cache --license licenses.txt && ncc build src/entry/cli.ts -o dist/cli --minify --no-cache --license licenses.txt && node scripts/finalize-dist.mjs",
+    "check": "npm run typecheck && npm test && npm run build && npm run verify:action && npm run verify:cli && npm run verify:tree && npm run verify:package",
+    "clean": "node scripts/clean-dist.mjs",
+    "pack:inspect": "npm pack --dry-run --json",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "verify:action": "node scripts/verify-action.mjs",
+    "verify:cli": "node scripts/verify-cli.mjs",
+    "verify:package": "node scripts/verify-package.mjs",
+    "verify:tree": "node scripts/verify-public-tree.mjs"
+  },
+  "devDependencies": {
+    "@actions/core": "3.0.1",
+    "@types/node": "26.1.1",
+    "@vercel/ncc": "0.44.1",
+    "csv-parse": "7.0.1",
+    "fast-glob": "3.3.3",
+    "typescript": "5.9.3",
+    "vitest": "4.1.10"
+  },
+  "license": "MPL-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/JaySalamanka/assettree-ci.git"
+  },
+  "homepage": "https://github.com/JaySalamanka/assettree-ci#readme"
+}

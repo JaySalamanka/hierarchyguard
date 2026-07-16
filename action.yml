@@ -1,0 +1,53 @@
+# SPDX-FileCopyrightText: 2026 Mohammad Allatayfeh
+# SPDX-License-Identifier: MPL-2.0
+
+name: AssetTree CI - CMMS Hierarchy Quality Gate
+description: Validate asset hierarchy CSV files offline and annotate structural import blockers.
+author: Mohammad Allatayfeh
+
+inputs:
+  files:
+    description: Optional newline-separated CSV globs overriding the checked-in configuration.
+    required: false
+  config:
+    description: Optional JSON configuration path relative to the repository workspace.
+    required: false
+    default: .assettree.json
+  fail-on:
+    description: Optional gate override (error, warning, or none).
+    required: false
+  output-dir:
+    description: Contained directory for JSON, SARIF, and Markdown reports.
+    required: false
+    default: .assettree
+  publish-details:
+    description: Opt in to publishing finding paths and messages in GitHub annotations and the job summary.
+    required: false
+    default: "false"
+  max-annotations:
+    description: Maximum number of workflow annotations.
+    required: false
+    default: "50"
+outputs:
+  passed:
+    description: Whether the configured validation gate passed.
+  score:
+    description: Transparent generic hierarchy score from 0 to 100.
+  error-count:
+    description: Number of error findings.
+  warning-count:
+    description: Number of warning findings.
+  json-path:
+    description: Relative path to the deterministic JSON report.
+  sarif-path:
+    description: Relative path to the SARIF 2.1.0 report.
+  markdown-path:
+    description: Relative path to the Markdown summary.
+
+runs:
+  using: node24
+  main: dist/action/index.js
+
+branding:
+  icon: git-branch
+  color: blue

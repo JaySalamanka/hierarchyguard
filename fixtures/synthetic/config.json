@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "files": ["fixtures/synthetic/*.csv"],
+  "columns": {
+    "id": "asset_id",
+    "parent": "parent_asset_id",
+    "name": "name",
+    "path": "path",
+    "level": "level"
+  },
+  "rules": {
+    "rootPolicy": "one",
+    "maxDepth": 6,
+    "requireParentBeforeChild": true,
+    "pathSeparator": "/"
+  },
+  "gate": {
+    "failOn": "error"
+  }
+}

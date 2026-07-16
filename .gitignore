@@ -1,0 +1,14 @@
+node_modules/
+coverage/
+.cache/
+.tmp/
+.assettree/
+*.log
+*.tgz
+.env
+.env.*
+!.env.example
+
+# Compiled Action and CLI bundles are intentionally committed and verified.
+!dist/
+!dist/**

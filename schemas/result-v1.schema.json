@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/assettree-ci/schemas/result-v1.schema.json",
+  "title": "AssetTree CI deterministic result v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "tool", "config_sha256", "inputs", "summary", "findings"],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "tool": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version", "ruleset"],
+      "properties": {
+        "name": { "const": "assettree-ci" },
+        "version": { "type": "string" },
+        "ruleset": { "type": "string" }
+      }
+    },
+    "config_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "inputs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "sha256", "rows"],
+        "properties": {
+          "path": { "type": "string" },
+          "sha256": { "type": ["string", "null"], "pattern": "^[a-f0-9]{64}$" },
+          "rows": { "type": "integer", "minimum": 0 }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["files", "rows", "score", "errors", "warnings", "notices", "passed", "operational_errors"],
+      "properties": {
+        "files": { "type": "integer", "minimum": 0 },
+        "rows": { "type": "integer", "minimum": 0 },
+        "score": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "errors": { "type": "integer", "minimum": 0 },
+        "warnings": { "type": "integer", "minimum": 0 },
+        "notices": { "type": "integer", "minimum": 0 },
+        "passed": { "type": "boolean" },
+        "operational_errors": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["fingerprint", "rule_id", "severity", "field", "message", "suggestion", "location"],
+        "properties": {
+          "fingerprint": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+          "rule_id": { "type": "string", "pattern": "^ATC[0-9]{3}$" },
+          "severity": { "enum": ["error", "warning", "notice"] },
+          "asset_id": { "type": "string" },
+          "field": { "type": "string" },
+          "message": { "type": "string" },
+          "suggestion": { "type": "string" },
+          "location": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "line"],
+            "properties": {
+              "path": { "type": "string" },
+              "line": { "type": "integer", "minimum": 1 }
+            }
+          }
+        }
+      }
+    }
+  }
+}

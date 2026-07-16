@@ -1,0 +1,22 @@
+AssetTree CI
+Copyright 2026 Mohammad Allatayfeh.
+
+This Source Code Form is subject to the terms of the Mozilla Public
+License, v. 2.0. If a copy of the MPL was not distributed with this
+file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+AssetTree CI is a working product name for a private launch candidate owned by
+Mohammad Allatayfeh. The MPL-2.0 license covers only material contained in this
+repository. Private datasets, rule packs, services, and other material not
+contained here are outside its scope.
+
+No rights are granted to product names, logos, service marks, hosted services,
+premium rule packs, compatibility packs, or private implementation technology.
+
+The machine-generated files under `dist/` correspond to first-party source in
+the same repository commit. Third-party copyright and license notices are
+provided in the adjacent `licenses.txt` files.
+
+Third-party names, if mentioned in future documentation, remain the property of
+their respective owners and must be used only for accurate compatibility
+description. No endorsement or certification may be implied.

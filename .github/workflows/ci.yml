@@ -1,0 +1,109 @@
+# SPDX-FileCopyrightText: 2026 Mohammad Allatayfeh
+# SPDX-License-Identifier: MPL-2.0
+
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: assettree-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Node ${{ matrix.node }} tests and typecheck
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        node:
+          - "22"
+          - "24"
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+  distribution:
+    name: Bundle, package, and local Action smoke test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Audit dependencies
+        run: npm audit --audit-level=high
+
+      - name: Build committed distributions
+        run: npm run build
+
+      - name: Verify public tree and package allowlists
+        run: |
+          npm run verify:action
+          npm run verify:cli
+          npm run verify:tree
+          npm run verify:package
+
+      - name: Require reproducible committed bundles
+        run: git diff --exit-code -- dist
+
+      - name: Smoke-test the local Action
+        id: smoke
+        uses: ./
+        with:
+          files: fixtures/synthetic/valid.csv
+          config: fixtures/synthetic/config.json
+          output-dir: .assettree-action
+
+      - name: Verify Action outputs
+        env:
+          PASSED: ${{ steps.smoke.outputs.passed }}
+          SCORE: ${{ steps.smoke.outputs.score }}
+        run: |
+          test "$PASSED" = "true"
+          test "$SCORE" = "100"
+
+      - name: Require invalid CLI input to fail with validation exit code
+        shell: bash
+        run: |
+          set +e
+          node dist/cli/index.js check fixtures/synthetic/invalid.csv --config fixtures/synthetic/config.json --output-dir .assettree-invalid
+          status=$?
+          set -e
+          test "$status" -eq 1
