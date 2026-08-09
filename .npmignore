@@ -1,0 +1,10 @@
+src/
+tests/
+fixtures/
+scripts/
+.github/
+action.yml
+tsconfig.json
+vitest.config.ts
+release-allowlist.json
+dist/action/

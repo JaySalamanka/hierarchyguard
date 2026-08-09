@@ -1,0 +1,55 @@
+# SPDX-FileCopyrightText: 2026 Mohammad Allatayfeh
+# SPDX-License-Identifier: MPL-2.0
+
+name: Release assurance
+
+on:
+  push:
+    tags: ["v[0-9]+.[0-9]+.[0-9]+"]
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  verify:
+    name: Verify and attest release artifacts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out exact tag
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+          cache: npm
+      - name: Match package version to tag
+        shell: bash
+        run: test "v$(node -p \"require('./package.json').version\")" = "$GITHUB_REF_NAME"
+      - name: Install and verify
+        run: |
+          npm ci --ignore-scripts
+          npm run check
+          git diff --exit-code -- dist
+          npm audit --ignore-scripts --audit-level=low
+      - name: Build release artifacts
+        shell: bash
+        run: |
+          mkdir release-artifacts
+          npm pack --ignore-scripts --pack-destination release-artifacts
+          npm sbom --sbom-format cyclonedx > release-artifacts/hierarchyguard-v${GITHUB_REF_NAME#v}.cdx.json
+          sha256sum release-artifacts/* > release-artifacts/SHA256SUMS.txt
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: hierarchyguard-${{ github.ref_name }}
+          path: release-artifacts/
+          if-no-files-found: error
+          retention-days: 90
+      - name: Attest package and SBOM
+        uses: actions/attest-build-provenance@8beda2b7ed98355c0e97c0a63bec38ae472e66c4 # v4.2.2
+        with:
+          subject-path: release-artifacts/*

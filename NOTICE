@@ -1,0 +1,13 @@
+HierarchyGuard
+Copyright 2026 Mohammad Allatayfeh.
+
+This Source Code Form is subject to the terms of the Mozilla Public License,
+v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain
+one at https://mozilla.org/MPL/2.0/.
+
+MPL-2.0 covers material contained in this repository. It does not cover private
+datasets, private rule packs, services or material not distributed here, and it
+does not grant rights to product names, logos or service marks.
+
+Machine-generated files under `dist/` correspond to first-party source in the
+same commit. Adjacent `licenses.txt` files contain third-party notices.

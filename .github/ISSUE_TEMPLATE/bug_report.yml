@@ -1,0 +1,50 @@
+name: Bug report
+description: Report a reproducible HierarchyGuard defect using synthetic data only.
+title: "[Bug]: "
+labels: [bug, triage]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not submit customer data, real asset identifiers, credentials, private paths, manuals or screenshots containing operational information. Use GitHub private vulnerability reporting for security issues.
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Output of `hierarchyguard --version` or the immutable Action tag/SHA.
+    validations:
+      required: true
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Surface
+      options: [GitHub Action, CLI, Reports, Documentation]
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal synthetic reproduction
+      description: Include only invented configuration/CSV rows safe for permanent public disclosure.
+      render: text
+    validations:
+      required: true
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Data-safety confirmation
+      options:
+        - label: I confirm this report contains only synthetic, non-confidential data and is not a security disclosure.
+          required: true

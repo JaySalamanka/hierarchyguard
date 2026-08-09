@@ -1,0 +1,66 @@
+# SPDX-FileCopyrightText: 2026 Mohammad Allatayfeh
+# SPDX-License-Identifier: MPL-2.0
+
+name: HierarchyGuard - CMMS Asset Hierarchy Quality Gate
+description: Validate asset hierarchy CSV files offline and annotate structural import blockers.
+author: Mohammad Allatayfeh
+
+inputs:
+  files:
+    description: Optional newline-separated CSV globs overriding the checked-in configuration.
+    required: false
+  config:
+    description: Optional JSON configuration path relative to the repository workspace.
+    required: false
+    default: .hierarchyguard.json
+  fail-on:
+    description: Optional gate override (error, warning, or none).
+    required: false
+  baseline:
+    description: Optional existing HierarchyGuard result JSON path relative to the repository workspace.
+    required: false
+  gate-mode:
+    description: Gate all findings or only findings absent from the baseline (all or new).
+    required: false
+    default: all
+  output-dir:
+    description: Contained directory for JSON, SARIF, and Markdown reports.
+    required: false
+    default: .hierarchyguard
+  publish-details:
+    description: Opt in to publishing finding paths and messages in GitHub annotations and the job summary.
+    required: false
+    default: "false"
+  max-annotations:
+    description: Maximum number of workflow annotations.
+    required: false
+    default: "50"
+outputs:
+  passed:
+    description: Whether the configured validation gate passed.
+  score:
+    description: Transparent generic hierarchy score from 0 to 100.
+  error-count:
+    description: Number of error findings.
+  warning-count:
+    description: Number of warning findings.
+  new-count:
+    description: Number of current finding fingerprints absent from or more severe than the baseline.
+  resolved-count:
+    description: Number of baseline finding fingerprints absent from the current result.
+  unchanged-count:
+    description: Number of finding fingerprints shared with the baseline.
+  json-path:
+    description: Relative path to the deterministic JSON report.
+  sarif-path:
+    description: Relative path to the SARIF 2.1.0 report.
+  markdown-path:
+    description: Relative path to the Markdown summary.
+
+runs:
+  using: node24
+  main: dist/action/index.js
+
+branding:
+  icon: git-branch
+  color: blue
