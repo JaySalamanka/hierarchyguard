@@ -28,7 +28,9 @@ jobs:
           cache: npm
       - name: Match package version to tag
         shell: bash
-        run: test "v$(node -p \"require('./package.json').version\")" = "$GITHUB_REF_NAME"
+        run: |
+          package_version="$(node -p "require('./package.json').version")"
+          test "v${package_version}" = "${GITHUB_REF_NAME}"
       - name: Install and verify
         run: |
           npm ci --ignore-scripts
